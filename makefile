@@ -7,7 +7,7 @@ endif
 
 out:
 	${CC} $< pi.c -o $@
-start:
+run:
 	./out
 clean:
 	rm out

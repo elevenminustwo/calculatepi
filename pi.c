@@ -14,8 +14,6 @@ typedef struct
    int   numthrds;
  } DATA;
 
-/* Define globally accessible variables and a mutex */
-
 DATA dotstr; 
 pthread_mutex_t mutexsum;
 
@@ -23,11 +21,9 @@ pthread_mutex_t mutexsum;
 void *picall(void *arg)
 {
 
-   /* Define and use local variables for convenience */
-
    int i, start, end, len, numthrds, myid,sign;
    long mythrd;
-   double mysum, *x, *y;
+   double mysum;
 
    mythrd = (long)arg;
    MPI_Comm_rank (MPI_COMM_WORLD, &myid);
@@ -46,8 +42,8 @@ void *picall(void *arg)
    //printf("end = %d\n",end);
    }
    mysum = 0;
-   printf("start = %d\n",start);
-   printf("end = %d\n",end);
+   //printf("start = %d\n",start);
+   //printf("end = %d\n",end);
    for (i=start; i<end ; i++) 
     {
       //printf("i value= %d\n",i);
@@ -58,23 +54,14 @@ void *picall(void *arg)
       }
       mysum += (sign)*(1.0 / (2 * i - 1)); 
       }
-   /*
-   Lock a mutex prior to updating the value in the structure, and unlock it 
-   upon updating.
-   */
    pthread_mutex_lock (&mutexsum);
-   printf("Task %d thread %ld adding partial sum of %f to node sum of %f\n",
-           myid, mythrd, mysum, dotstr.sum);
+   printf("Thread %ld adding partial sum of %f\n",
+           mythrd, mysum);
    dotstr.sum += mysum;
    pthread_mutex_unlock (&mutexsum);
 
    pthread_exit((void*)0);
 }
-
-/* 
-As before,the main program does very little computation. It creates
-threads on each node and the main thread does all the MPI calls. 
-*/
 
 int main(int argc, char* argv[])
 {
@@ -92,7 +79,6 @@ scanf("%d", &numops);
 
 printf ("Number of threads? ");
 scanf("%d", &MAXTHRDS); 
-/* MPI Initialization */
 
 if(MAXTHRDS!=1){
 len = numops/(MAXTHRDS-1);
@@ -106,11 +92,9 @@ MPI_Init (&argc, &argv);
 MPI_Comm_size (MPI_COMM_WORLD, &numprocs);
 MPI_Comm_rank (MPI_COMM_WORLD, &myid);
 
-//Synchronize all processes and get the begin time
 MPI_Barrier(MPI_COMM_WORLD);
 begin = MPI_Wtime();
 
-/*initialize values */
 numthrds=MAXTHRDS;
 dotstr.range = len; 
 dotstr.sum=0;
@@ -145,7 +129,6 @@ for(i=0;i<numthrds;i++) {
   }
 
 nodesum = dotstr.sum;
-printf("Task %d node sum is %f\n",myid, nodesum);
 
 /* After the pi calculation, master node(main thread) performs a summation of results on each node */
 MPI_Reduce (&nodesum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -154,7 +137,6 @@ MPI_Reduce (&nodesum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 MPI_Barrier(MPI_COMM_WORLD);
 end = MPI_Wtime();
 
-/* Finishes own part and adds to summation */
 printf("Remaining part for master node = %d\n",dotstr.remaining);
 
 if (myid == 0)  
