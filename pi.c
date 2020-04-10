@@ -69,7 +69,7 @@ int len, myid, numprocs,MAXTHRDS,numops;
 long i;
 int nump1, numthrds;
 double begin=0.0, end=0.0;
-double nodesum, allsum;
+double allsum;
 void *status;
 pthread_attr_t attr;
 
@@ -92,6 +92,7 @@ MPI_Init (&argc, &argv);
 MPI_Comm_size (MPI_COMM_WORLD, &numprocs);
 MPI_Comm_rank (MPI_COMM_WORLD, &myid);
 
+
 MPI_Barrier(MPI_COMM_WORLD);
 begin = MPI_Wtime();
 
@@ -104,6 +105,9 @@ dotstr.remaining = numops-(len*(MAXTHRDS-1));
 }else{
 dotstr.remaining = numops;
 }
+
+//broadcast to all processes
+MPI_Bcast(&dotstr.range,1,MPI_INT,0,MPI_COMM_WORLD);
   
 /* 
 Create thread attribute to specify that the main thread needs
@@ -128,10 +132,8 @@ for(i=0;i<numthrds;i++) {
   pthread_join( callThd[i], &status);
   }
 
-nodesum = dotstr.sum;
-
 /* After the pi calculation, master node(main thread) performs a summation of results on each node */
-MPI_Reduce (&nodesum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+MPI_Reduce (&dotstr.sum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
 //Synchronize all processes and get the end time
 MPI_Barrier(MPI_COMM_WORLD);
@@ -140,8 +142,8 @@ end = MPI_Wtime();
 printf("Remaining part for master node = %d\n",dotstr.remaining);
 
 if (myid == 0)  
-printf ("Done. PI=  %f\n", allsum*4);
-printf ("Approximation error: %f \n", allsum*4-M_PI);
+printf ("Done. PI=  %.16f\n", allsum*4);
+printf ("Approximation error: %.16f \n", allsum*4-M_PI);
 printf("Time=%fs\n", end-begin);
 MPI_Finalize();
 pthread_mutex_destroy(&mutexsum);
