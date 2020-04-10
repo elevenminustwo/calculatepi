@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define M_PI 3.14159265358979323846
 
@@ -24,7 +25,7 @@ void *picall(void *arg)
 
    /* Define and use local variables for convenience */
 
-   int i, start, end, len, numthrds, myid,sign=1;
+   int i, start, end, len, numthrds, myid,sign;
    long mythrd;
    double mysum, *x, *y;
 
@@ -34,21 +35,29 @@ void *picall(void *arg)
    numthrds = dotstr.numthrds;
    len = dotstr.range;
    if(mythrd!=0){
-   start = myid*numthrds*len + mythrd*len+dotstr.remaining+1;
+   start = myid*numthrds*len + (mythrd-1)*len+dotstr.remaining+1;
    end   = start + len;   
    }else{
+   if(dotstr.remaining!=0){
    start = 1;
-   end   = start+len+dotstr.remaining;  
+   end   = start+dotstr.remaining;  
+   }
+   //printf("start = %d\n",start);
+   //printf("end = %d\n",end);
    }
    mysum = 0;
    printf("start = %d\n",start);
    printf("end = %d\n",end);
    for (i=start; i<end ; i++) 
     {
-      mysum += (sign)*(1.0 / (2 * i - 1));
-      sign = (-1)*sign;    
-    }
-
+      //printf("i value= %d\n",i);
+      if(i%2==0){
+	sign = -1;
+      }else{
+	sign = 1;   
+      }
+      mysum += (sign)*(1.0 / (2 * i - 1)); 
+      }
    /*
    Lock a mutex prior to updating the value in the structure, and unlock it 
    upon updating.
@@ -72,7 +81,7 @@ int main(int argc, char* argv[])
 int len, myid, numprocs,MAXTHRDS,numops; 
 long i;
 int nump1, numthrds;
-double *a, *b;
+double begin=0.0, end=0.0;
 double nodesum, allsum;
 void *status;
 pthread_attr_t attr;
@@ -85,7 +94,11 @@ printf ("Number of threads? ");
 scanf("%d", &MAXTHRDS); 
 /* MPI Initialization */
 
+if(MAXTHRDS!=1){
+len = numops/(MAXTHRDS-1);
+}else{
 len = numops/MAXTHRDS;
+}
 
 pthread_t callThd[MAXTHRDS];
 
@@ -93,20 +106,20 @@ MPI_Init (&argc, &argv);
 MPI_Comm_size (MPI_COMM_WORLD, &numprocs);
 MPI_Comm_rank (MPI_COMM_WORLD, &myid);
 
-/* Assign storage and initialize values */
-numthrds=MAXTHRDS;
-a = (double*) malloc (numprocs*numthrds*len*sizeof(double));
-b = (double*) malloc (numprocs*numthrds*len*sizeof(double));
-  
-for (i=0; i<len*numprocs*numthrds; i++) {
-  a[i]=1;
-  b[i]=a[i];
-  }
+//Synchronize all processes and get the begin time
+MPI_Barrier(MPI_COMM_WORLD);
+begin = MPI_Wtime();
 
+/*initialize values */
+numthrds=MAXTHRDS;
 dotstr.range = len; 
 dotstr.sum=0;
 dotstr.numthrds=MAXTHRDS;
-dotstr.remaining = numops%MAXTHRDS;
+if(MAXTHRDS!=1){
+dotstr.remaining = numops-(len*(MAXTHRDS-1));
+}else{
+dotstr.remaining = numops;
+}
   
 /* 
 Create thread attribute to specify that the main thread needs
@@ -118,7 +131,7 @@ pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 /* Create a mutex */
 pthread_mutex_init (&mutexsum, NULL);
 
-/* Create threads within this node to perform the dotproduct  */
+/* Create threads */
 for(i=0;i<numthrds;i++) {
   pthread_create( &callThd[i], &attr, picall, (void *)i); 
   }
@@ -136,12 +149,18 @@ printf("Task %d node sum is %f\n",myid, nodesum);
 
 /* After the pi calculation, master node(main thread) performs a summation of results on each node */
 MPI_Reduce (&nodesum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+//Synchronize all processes and get the end time
+MPI_Barrier(MPI_COMM_WORLD);
+end = MPI_Wtime();
+
 /* Finishes own part and adds to summation */
 printf("Remaining part for master node = %d\n",dotstr.remaining);
 
 if (myid == 0)  
-printf ("Done. MPI with threads version: sum  =  %f \n", allsum*4);
+printf ("Done. PI=  %f\n", allsum*4);
 printf ("Approximation error: %f \n", allsum*4-M_PI);
+printf("Time=%fs\n", end-begin);
 MPI_Finalize();
 pthread_mutex_destroy(&mutexsum);
 exit (0);
