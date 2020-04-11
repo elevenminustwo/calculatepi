@@ -27,7 +27,6 @@ void *picall(void *arg)
 
    mythrd = (long)arg;
    MPI_Comm_rank (MPI_COMM_WORLD, &myid);
-
    numthrds = dotstr.numthrds;
    len = dotstr.range;
    if(mythrd!=0){
@@ -107,8 +106,8 @@ dotstr.remaining = numops;
 }
 
 //broadcast to all processes
-MPI_Bcast(&dotstr.range,1,MPI_INT,0,MPI_COMM_WORLD);
-  
+MPI_Bcast(&dotstr,1,MPI_INT,0,MPI_COMM_WORLD);  
+
 /* 
 Create thread attribute to specify that the main thread needs
 to join with the threads it creates.
