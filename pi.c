@@ -1,4 +1,4 @@
-#include "mpi.h" 
+//#include "mpi.h" 
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,17 +16,16 @@ typedef struct
 
 DATA dotstr; 
 pthread_mutex_t mutexsum;
-
+clock_t begin,end;
 
 void *picall(void *arg)
 {
-
    int i, start, end, len, numthrds, myid,sign;
    long mythrd;
    double mysum;
-
+   
    mythrd = (long)arg;
-   MPI_Comm_rank (MPI_COMM_WORLD, &myid);
+  // MPI_Comm_rank (MPI_COMM_WORLD, &myid);
    numthrds = dotstr.numthrds;
    len = dotstr.range;
    if(mythrd!=0){
@@ -43,6 +42,7 @@ void *picall(void *arg)
    mysum = 0;
    //printf("start = %d\n",start);
    //printf("end = %d\n",end);
+
    for (i=start; i<end ; i++) 
     {
       //printf("i value= %d\n",i);
@@ -54,7 +54,7 @@ void *picall(void *arg)
       mysum += (sign)*(1.0 / (2 * i - 1)); 
       }
    pthread_mutex_lock (&mutexsum);
-   printf("Thread %ld adding partial sum of %f\n",
+   printf("Thread %ld adding partial sum of %.16f \n",
            mythrd, mysum);
    dotstr.sum += mysum;
    pthread_mutex_unlock (&mutexsum);
@@ -67,17 +67,18 @@ int main(int argc, char* argv[])
 int len, myid, numprocs,MAXTHRDS,numops; 
 long i;
 int nump1, numthrds;
-double begin=0.0, end=0.0;
+//double begin=0.0, end=0.0;
 double allsum;
 void *status;
 pthread_attr_t attr;
-
 
 printf ("Total number of operations? ");
 scanf("%d", &numops); 
 
 printf ("Number of threads? ");
 scanf("%d", &MAXTHRDS); 
+ 
+begin = clock();
 
 if(MAXTHRDS!=1){
 len = numops/(MAXTHRDS-1);
@@ -87,13 +88,13 @@ len = numops/MAXTHRDS;
 
 pthread_t callThd[MAXTHRDS];
 
-MPI_Init (&argc, &argv);
-MPI_Comm_size (MPI_COMM_WORLD, &numprocs);
-MPI_Comm_rank (MPI_COMM_WORLD, &myid);
+//MPI_Init (&argc, &argv);
+//MPI_Comm_size (MPI_COMM_WORLD, &numprocs);
+//MPI_Comm_rank (MPI_COMM_WORLD, &myid);
 
 
-MPI_Barrier(MPI_COMM_WORLD);
-begin = MPI_Wtime();
+//MPI_Barrier(MPI_COMM_WORLD);
+//begin = MPI_Wtime();
 
 numthrds=MAXTHRDS;
 dotstr.range = len; 
@@ -105,8 +106,8 @@ dotstr.remaining = numops-(len*(MAXTHRDS-1));
 dotstr.remaining = numops;
 }
 
-//broadcast to all processes
-MPI_Bcast(&dotstr,1,MPI_INT,0,MPI_COMM_WORLD);  
+/*broadcast to all processes*/
+//MPI_Bcast(&dotstr,1,MPI_INT,0,MPI_COMM_WORLD);  
 
 /* 
 Create thread attribute to specify that the main thread needs
@@ -132,19 +133,22 @@ for(i=0;i<numthrds;i++) {
   }
 
 /* After the pi calculation, master node(main thread) performs a summation of results on each node */
-MPI_Reduce (&dotstr.sum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+//MPI_Reduce (&dotstr.sum, &allsum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-//Synchronize all processes and get the end time
-MPI_Barrier(MPI_COMM_WORLD);
-end = MPI_Wtime();
+allsum = dotstr.sum;
+
+/*Synchronize all processes and get the end time*/
+//MPI_Barrier(MPI_COMM_WORLD);
+//end = MPI_Wtime();
+end = clock();
 
 printf("Remaining part for master node = %d\n",dotstr.remaining);
 
 if (myid == 0)  
 printf ("Done. PI=  %.16f\n", allsum*4);
 printf ("Approximation error: %.16f \n", allsum*4-M_PI);
-printf("Time=%fs\n", end-begin);
-MPI_Finalize();
+printf("Time=%fs\n", ((float)(end - begin) / 1000000.0F ) * 1000);
+//MPI_Finalize();
 pthread_mutex_destroy(&mutexsum);
 exit (0);
 }   
