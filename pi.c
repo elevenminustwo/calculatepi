@@ -18,17 +18,13 @@ typedef struct
 DATA dotstr; 
 pthread_mutex_t mutexsum;
 clock_t begin,end;
-int flag = 0;
 
 void *picall(void *arg)
 {
    int i, start, end, len, numthrds, myid,sign;
    long mythrd;
    double mysum;
-   if(flag==0){
-    dotstr.begin = clock();
-    flag=1;
-   }
+
    mythrd = (long)arg;
   // MPI_Comm_rank (MPI_COMM_WORLD, &myid);
    numthrds = dotstr.numthrds;
@@ -72,8 +68,8 @@ int main(int argc, char* argv[])
 int len, myid, numprocs,MAXTHRDS,numops; 
 long i;
 int nump1, numthrds;
-//double begin=0.0, end=0.0;
-double allsum;
+struct timespec begin, end;
+double allsum, elapsed;
 void *status;
 pthread_attr_t attr;
 
@@ -82,6 +78,8 @@ scanf("%d", &numops);
 
 printf ("Number of threads? ");
 scanf("%d", &MAXTHRDS); 
+
+clock_gettime(CLOCK_MONOTONIC, &begin);
 
 if(MAXTHRDS!=1){
 len = numops/(MAXTHRDS-1);
@@ -143,14 +141,18 @@ allsum = dotstr.sum;
 /*Synchronize all processes and get the end time*/
 //MPI_Barrier(MPI_COMM_WORLD);
 //end = MPI_Wtime();
-end = clock();
+clock_gettime(CLOCK_MONOTONIC, &end);
 
 printf("Remaining part for master node = %d\n",dotstr.remaining);
 
-if (myid == 0)  
+if (myid == 0)
+elapsed = (end.tv_sec - begin.tv_sec);
+elapsed += (end.tv_nsec - begin.tv_nsec) / 1000000000.0;
+
 printf ("Done. PI=  %.16f\n", allsum*4);
 printf ("Approximation error: %.16f \n", allsum*4-M_PI);
-printf("Time=%fs\n", ((float)(end - begin) / 1000000.0F ) * 1000);
+printf("Time=%f \n", elapsed);
+
 //MPI_Finalize();
 pthread_mutex_destroy(&mutexsum);
 exit (0);
