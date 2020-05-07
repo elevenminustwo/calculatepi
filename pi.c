@@ -12,18 +12,23 @@ typedef struct
    int     range;
    int     remaining; 
    int   numthrds;
+   double begin;
  } DATA;
 
 DATA dotstr; 
 pthread_mutex_t mutexsum;
 clock_t begin,end;
+int flag = 0;
 
 void *picall(void *arg)
 {
    int i, start, end, len, numthrds, myid,sign;
    long mythrd;
    double mysum;
-   
+   if(flag==0){
+    dotstr.begin = clock();
+    flag=1;
+   }
    mythrd = (long)arg;
   // MPI_Comm_rank (MPI_COMM_WORLD, &myid);
    numthrds = dotstr.numthrds;
@@ -77,8 +82,6 @@ scanf("%d", &numops);
 
 printf ("Number of threads? ");
 scanf("%d", &MAXTHRDS); 
- 
-begin = clock();
 
 if(MAXTHRDS!=1){
 len = numops/(MAXTHRDS-1);
